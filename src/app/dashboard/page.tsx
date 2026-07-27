@@ -241,32 +241,36 @@ export default function DashboardPage() {
     }
   }, [])
 
+  const didInit = useCallback(() => {}, []) // stable identity for one-time init
+
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const verified = sessionStorage.getItem('auth_verified')
-      if (!verified) { router.push('/login'); return }
-      const name = sessionStorage.getItem('patient_name')
-      const abha = sessionStorage.getItem('patient_abha')
-      if (name) setPatientName(name)
-      if (abha) setAbhaId(abha)
+    if (typeof window === 'undefined') return
 
-      // Tab parameter pre-selection (e.g. /dashboard?tab=prescriptions)
-      const params = new URLSearchParams(window.location.search)
-      const tabParam = params.get('tab')
-      if (tabParam && ['overview', 'records', 'prescriptions', 'labs', 'imaging', 'allergies', 'qr'].includes(tabParam)) {
-        setActive(tabParam)
-      }
+    const verified = sessionStorage.getItem('auth_verified')
+    if (!verified) { router.push('/login'); return }
 
-      const dismissed = sessionStorage.getItem('dismissed_alert_id') || ''
-      if (dismissed) setDismissedAlertId(dismissed)
+    const name = sessionStorage.getItem('patient_name')
+    const abha = sessionStorage.getItem('patient_abha')
+    if (name) setPatientName(name)
+    if (abha) setAbhaId(abha)
 
-      refreshState()
-      const interval = setInterval(refreshState, 900)
-      const onStorage = () => refreshState()
-      window.addEventListener('storage', onStorage)
-      return () => { clearInterval(interval); window.removeEventListener('storage', onStorage) }
+    // Tab parameter pre-selection — read ONCE on initial mount only
+    const params = new URLSearchParams(window.location.search)
+    const tabParam = params.get('tab')
+    if (tabParam && ['overview', 'records', 'prescriptions', 'labs', 'imaging', 'allergies', 'qr'].includes(tabParam)) {
+      setActive(tabParam)
     }
-  }, [router, refreshState])
+
+    const dismissed = sessionStorage.getItem('dismissed_alert_id') || ''
+    if (dismissed) setDismissedAlertId(dismissed)
+
+    refreshState()
+    const interval = setInterval(refreshState, 900)
+    const onStorage = () => refreshState()
+    window.addEventListener('storage', onStorage)
+    return () => { clearInterval(interval); window.removeEventListener('storage', onStorage) }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [didInit]) // ← intentionally stable: runs only once on mount
 
   const handleApproveConsent = () => {
     setLS({ consent: { ...consent, status: 'approved' } })
