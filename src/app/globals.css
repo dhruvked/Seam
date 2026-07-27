@@ -3028,11 +3028,20 @@ body {
 
 .pd-new-record-alert {
   background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 10px;
-  padding: 12px 16px; display: flex; align-items: center; gap: 10px;
-  font-size: 13px; color: #166534; font-weight: 600; cursor: pointer;
+  padding: 10px 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  font-size: 13px; color: #166534; font-weight: 600;
 }
 
 .pd-new-record-dot { width: 8px; height: 8px; background: #16a34a; border-radius: 50%; flex-shrink: 0; }
+
+.pd-new-record-dismiss {
+  background: transparent; border: 1px solid #bbf7d0; color: #166534;
+  font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 6px;
+  cursor: pointer; transition: all 0.2s; flex-shrink: 0;
+}
+
+.pd-new-record-dismiss:hover { background: #dcfce7; color: #14532d; }
+
 
 .pd-summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
 

@@ -197,6 +197,8 @@ export default function DashboardPage() {
   const [aiError, setAiError] = useState<string>('')
   const [isSimulated, setIsSimulated] = useState<boolean>(false)
 
+  const [dismissedAlertId, setDismissedAlertId] = useState<string>('')
+
   const explainWithAI = async (record: HealthRecord) => {
     if (!record) return
     setAiLoading(true)
@@ -247,6 +249,17 @@ export default function DashboardPage() {
       const abha = sessionStorage.getItem('patient_abha')
       if (name) setPatientName(name)
       if (abha) setAbhaId(abha)
+
+      // Tab parameter pre-selection (e.g. /dashboard?tab=prescriptions)
+      const params = new URLSearchParams(window.location.search)
+      const tabParam = params.get('tab')
+      if (tabParam && ['overview', 'records', 'prescriptions', 'labs', 'imaging', 'allergies', 'qr'].includes(tabParam)) {
+        setActive(tabParam)
+      }
+
+      const dismissed = sessionStorage.getItem('dismissed_alert_id') || ''
+      if (dismissed) setDismissedAlertId(dismissed)
+
       refreshState()
       const interval = setInterval(refreshState, 900)
       const onStorage = () => refreshState()
@@ -371,10 +384,34 @@ export default function DashboardPage() {
           )}
 
           {/* New Record Alert */}
-          {liveRecords.length > 0 && (
-            <div className="pd-new-record-alert" onClick={() => setActive('records')}>
-              <div className="pd-new-record-dot" />
-              <span>{liveRecords.length} new record{liveRecords.length > 1 ? 's' : ''} added by your doctor — click to view</span>
+          {liveRecords.length > 0 && liveRecords[0]?.id !== dismissedAlertId && (
+            <div className="pd-new-record-alert">
+              <div
+                className="pd-new-record-left"
+                onClick={() => {
+                  setActive('records')
+                  if (typeof window !== 'undefined') {
+                    sessionStorage.setItem('dismissed_alert_id', liveRecords[0]?.id || '')
+                    setDismissedAlertId(liveRecords[0]?.id || '')
+                  }
+                }}
+                style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, flex: 1 }}
+              >
+                <div className="pd-new-record-dot" />
+                <span>{liveRecords.length} new record{liveRecords.length > 1 ? 's' : ''} added by your doctor — click to view</span>
+              </div>
+              <button
+                className="pd-new-record-dismiss"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  if (typeof window !== 'undefined') {
+                    sessionStorage.setItem('dismissed_alert_id', liveRecords[0]?.id || '')
+                    setDismissedAlertId(liveRecords[0]?.id || '')
+                  }
+                }}
+              >
+                Dismiss
+              </button>
             </div>
           )}
 
