@@ -2,69 +2,62 @@ import Link from 'next/link'
 
 export default function Home() {
   return (
-    <main className="landing">
-      <div className="landing-bg" />
-      <div className="grid-overlay" />
-
-      {/* Nav */}
-      <nav className="nav">
-        <div className="nav-logo">
-          <div className="logo-icon">⚕</div>
-          <span>HealthOS</span>
-        </div>
-        <span className="nav-badge">ABDM Powered</span>
-      </nav>
-
-      {/* Hero */}
-      <section className="hero">
-        <div className="hero-inner">
-          <div className="hero-tag fade-up">
-            <span className="hero-tag-dot" />
-            Built on Ayushman Bharat Digital Mission
+    <div className="layout-root">
+      
+      {/* Navbar */}
+      <header className="wireframe-header">
+        <div className="header-brand">
+          <span className="brand-logo">🩺</span>
+          <div>
+            <h1 className="brand-name">Seam</h1>
+            <p className="brand-sub">ABDM Health Locker & Clinical Portal</p>
           </div>
+        </div>
 
-          <h1 className="fade-up-1">
-            Your complete health<br />
-            record, <span className="gradient-text">one login away</span>
-          </h1>
+        <div className="header-actions">
+          <Link href="/login" className="btn-primary">
+            Patient Login →
+          </Link>
+          <Link href="/doctor/login" className="btn-secondary">
+            Doctor Portal →
+          </Link>
+        </div>
+      </header>
 
-          <p className="hero-sub fade-up-2">
-            Access every consultation, prescription, and lab report from any
-            hospital across India — securely linked to your ABHA ID.
+      {/* Main Landing */}
+      <main className="simple-landing">
+        <div className="simple-hero-card">
+          <h1>Seamless Health Record Sharing</h1>
+          <p>
+            Connect your Ayushman Bharat Health Account (ABHA). Access all your medical records, grant digital consent to doctors, and translate prescriptions with AI.
           </p>
 
-          <div className="hero-actions fade-up-3">
+          <div className="simple-actions">
             <Link href="/login" className="btn-primary">
-              <span>⚡</span>
-              Login with ABHA
+              🔑 Login with ABHA (Patient App)
             </Link>
-            <p className="hero-note">Free forever for patients · No credit card</p>
-            <Link href="/doctor/login" style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>
-              Are you a doctor? <span style={{ color: 'var(--teal)', fontWeight: 600 }}>Doctor Portal →</span>
+            <Link href="/doctor/login" className="btn-secondary">
+              👨‍⚕️ Doctor Clinical Portal
             </Link>
           </div>
         </div>
-      </section>
 
-      {/* Stats */}
-      <div className="stats-strip fade-up-4">
-        <div className="stat-item">
-          <div className="stat-value">560M+</div>
-          <div className="stat-label">ABHA IDs created</div>
+        <div className="stats-row" style={{ width: '100%' }}>
+          <div className="stat-pill">
+            <span className="stat-num">ABDM</span>
+            <span className="stat-lbl">Sandbox Compliant</span>
+          </div>
+          <div className="stat-pill">
+            <span className="stat-num">FHIR R4</span>
+            <span className="stat-lbl">Record Standards</span>
+          </div>
+          <div className="stat-pill">
+            <span className="stat-num">Gemini AI</span>
+            <span className="stat-lbl">Prescription Explainer</span>
+          </div>
         </div>
-        <div className="stat-item">
-          <div className="stat-value">300K+</div>
-          <div className="stat-label">Linked facilities</div>
-        </div>
-        <div className="stat-item">
-          <div className="stat-value">7</div>
-          <div className="stat-label">Record types supported</div>
-        </div>
-        <div className="stat-item">
-          <div className="stat-value">100%</div>
-          <div className="stat-label">Consent-based access</div>
-        </div>
-      </div>
-    </main>
+      </main>
+
+    </div>
   )
 }
