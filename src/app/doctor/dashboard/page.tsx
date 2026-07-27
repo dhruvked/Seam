@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import '../../doctor-portal.css'
 
 // ─── Types ──────────────────────────────────────────────────────
 type DoctorState = 'idle' | 'searching' | 'found' | 'consent_sent' | 'approved' | 'submitting' | 'submitted'
@@ -32,13 +31,92 @@ const LAB_TESTS = [
 const FOLLOW_UPS = ['1 week', '2 weeks', '1 month', '3 months', 'As needed']
 
 const STEPS = [
-  { label: 'Search Patient', icon: '🔍' },
-  { label: 'Consent', icon: '🤝' },
-  { label: 'Consultation', icon: '🩺' },
-  { label: 'Submit', icon: '✅' },
+  { label: 'Search Patient', number: '1' },
+  { label: 'Consent', number: '2' },
+  { label: 'Consultation', number: '3' },
+  { label: 'Submit', number: '4' },
 ]
 
-// ─── Shared state helpers ────────────────────────────────────────
+const PATIENT_HISTORY = [
+  {
+    id: 1,
+    type: 'Consultation',
+    title: 'Viral Fever & Upper Respiratory Infection',
+    doctor: 'Dr. Priya Mehta',
+    facility: 'Apollo Clinic, Andheri',
+    date: '28 Jun 2026',
+    detail: 'Presented with 3-day fever (102°F), sore throat, and body ache. Likely viral etiology. Symptomatic management advised.',
+    tags: ['ICD-11: J06.9', 'OP Visit', 'FHIR Synced'],
+  },
+  {
+    id: 2,
+    type: 'Prescription',
+    title: 'Rx — Paracetamol, Cetirizine, Azithromycin',
+    doctor: 'Dr. Priya Mehta',
+    facility: 'Apollo Clinic, Andheri',
+    date: '28 Jun 2026',
+    detail: 'Paracetamol 650mg TDS x 5 days | Cetirizine 10mg OD x 5 days | Azithromycin 500mg OD x 3 days. Take after meals.',
+    tags: ['3 medications', '5-day course'],
+  },
+  {
+    id: 3,
+    type: 'Lab Report',
+    title: 'Complete Blood Count (CBC) + CRP',
+    doctor: 'SRL Diagnostics',
+    facility: 'SRL Lab, Malad West',
+    date: '27 Jun 2026',
+    detail: 'WBC: 11,200/uL (slightly elevated) | Hb: 13.8 g/dL (normal) | Platelets: 2.1L (normal) | CRP: 18 mg/L (mildly elevated).',
+    tags: ['LOINC Coded', 'Mildly Abnormal', 'PDF Available'],
+  },
+  {
+    id: 4,
+    type: 'Consultation',
+    title: 'Type 2 Diabetes — Quarterly Review',
+    doctor: 'Dr. Suresh Rao',
+    facility: 'Kokilaben Hospital OPD',
+    date: '10 Apr 2026',
+    detail: 'HbA1c: 7.1% (controlled). Weight stable at 74kg. No new complications. Continue current medication.',
+    tags: ['ICD-11: 5A11', 'Chronic Ongoing', 'FHIR Synced'],
+  },
+  {
+    id: 5,
+    type: 'Prescription',
+    title: 'Rx — Metformin 500mg, Telmisartan 40mg',
+    doctor: 'Dr. Suresh Rao',
+    facility: 'Kokilaben Hospital OPD',
+    date: '10 Apr 2026',
+    detail: 'Metformin 500mg BD after meals (long-term) | Telmisartan 40mg OD morning (long-term).',
+    tags: ['2 medications', 'Long-term'],
+  },
+  {
+    id: 6,
+    type: 'Lab Report',
+    title: 'HbA1c + Lipid Profile + KFT',
+    doctor: 'Metropolis Healthcare',
+    facility: 'Metropolis Lab, Bandra',
+    date: '8 Apr 2026',
+    detail: 'HbA1c: 7.1% | Total Cholesterol: 182 mg/dL | LDL: 108 mg/dL | HDL: 48 mg/dL | Creatinine: 0.9 mg/dL.',
+    tags: ['LOINC Coded', 'All Normal'],
+  },
+  {
+    id: 7,
+    type: 'Imaging',
+    title: 'Chest X-Ray (PA View)',
+    doctor: 'Dr. Ananya Singh',
+    facility: 'Nanavati Hospital Radiology',
+    date: '2 Jan 2026',
+    detail: 'No active consolidation or pleural effusion. Lung fields clear bilaterally. Heart size normal.',
+    tags: ['Radiology', 'Normal', 'DICOM Stored'],
+  },
+]
+
+const TYPE_BADGE_CLASSES: { [key: string]: string } = {
+  'Consultation': 'dd-tag-teal',
+  'Prescription': 'dd-tag-blue',
+  'Lab Report': 'dd-tag-purple',
+  'Imaging': 'dd-tag-amber',
+}
+
 const LS_KEY = 'healthos_state'
 
 function getLS() {
@@ -60,6 +138,10 @@ export default function DoctorDashboard() {
   const [step, setStep] = useState<DoctorState>('idle')
   const [query, setQuery] = useState('')
   const [searchError, setSearchError] = useState('')
+
+  // Tab & Carousel state in approved view
+  const [approvedTab, setApprovedTab] = useState<'prescription' | 'history'>('prescription')
+  const [currentSlide, setCurrentSlide] = useState(0)
 
   // Consultation form
   const [chiefComplaint, setChiefComplaint] = useState('')
@@ -158,7 +240,7 @@ export default function DoctorDashboard() {
       id,
       type: 'Consultation',
       typeClass: 'icon-teal',
-      icon: '🩺',
+      icon: '✓',
       title: diagnosis,
       doctor: doctorName,
       facility: 'Apollo Clinic, Andheri',
@@ -194,6 +276,8 @@ export default function DoctorDashboard() {
     setFollowUp('1 week')
     setRecordId('')
     setSearchError('')
+    setApprovedTab('prescription')
+    setCurrentSlide(0)
     const ls = getLS()
     if (ls.consent) setLS({ consent: null })
   }
@@ -207,79 +291,81 @@ export default function DoctorDashboard() {
   const initials = doctorName.split(' ').filter(w => w[0]?.match(/[A-Z]/)).map(w => w[0]).join('').slice(0, 2) || 'DR'
 
   return (
-    <div className="dashboard">
+    <div className="dd-dashboard">
+      {/* Fullscreen Mobile Warning Takeover */}
+      <div className="dd-mobile-warning">
+        <div className="dd-mobile-warning-card">
+          <div className="dd-mobile-warning-icon">S</div>
+          <h2 className="dd-mobile-warning-title">Desktop Only Portal</h2>
+          <p className="dd-mobile-warning-sub">
+            The Seam Doctor Portal is designed for clinical desktop and tablet displays. Please open this link on a computer to manage consultations.
+          </p>
+          <a href="/" className="dd-mobile-warning-btn">Go to Seam Home</a>
+        </div>
+      </div>
+
       {/* Header */}
-      <header className="dash-header">
-        <div className="dash-header-left">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700, fontSize: 17, flexShrink: 0 }}>
-            <div style={{ width: 30, height: 30, fontSize: 15, background: 'linear-gradient(135deg,#3b82f6,#8b5cf6)', borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>🩺</div>
-            <span>HealthOS</span>
+      <header className="dd-dash-header">
+        <div className="dd-dash-header-left">
+          <div className="dd-dash-logo">
+            <span>Seam</span>
           </div>
-          <div className="hpr-badge" id="hpr-badge">
-            <span>👨‍⚕️</span>
-            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 160 }}>{hprId}</span>
+          <div className="dd-hpr-badge" id="hpr-badge">
+            <span className="dd-badge-pill">Clinical Portal</span>
           </div>
         </div>
-        <div className="dash-header-right">
-          <button className="btn-icon" id="doctor-notification-btn">🔔</button>
-          <div className="avatar" id="doctor-avatar" style={{ background: 'linear-gradient(135deg,#3b82f6,#8b5cf6)', flexShrink: 0 }}>{initials}</div>
+        <div className="dd-dash-header-right">
+          <button id="doctor-logout-btn" className="dd-btn-signout"
+            onClick={() => { sessionStorage.clear(); router.push('/') }}>
+            Sign Out
+          </button>
         </div>
       </header>
 
-      <div className="dash-body">
+      <div className="dd-dash-body">
         {/* Sidebar */}
-        <aside className="sidebar">
+        <aside className="dd-sidebar">
           {/* Doctor info card */}
-          <div className="doctor-card">
-            <div className="doctor-avatar">{initials}</div>
-            <div className="doctor-name">{doctorName}</div>
-            <div className="doctor-spec">MBBS, MD — Internal Medicine</div>
-            <div className="doctor-meta-row">
-              <div className="doctor-meta-item"><span>🏥</span> Apollo Clinic, Andheri</div>
-              <div className="doctor-meta-item"><span>🪪</span> {hprId}</div>
-              <div className="doctor-meta-item"><span>⭐</span> Reg. No: MCI-2019-88742</div>
+          <div className="dd-doctor-card">
+            <div className="dd-doctor-avatar">{initials}</div>
+            <div className="dd-doctor-name">{doctorName}</div>
+            <div className="dd-doctor-spec">MBBS, MD — Internal Medicine</div>
+            <div className="dd-doctor-meta-row">
+              <div className="dd-doctor-meta-item">Apollo Clinic, Andheri</div>
+              <div className="dd-doctor-meta-item">{hprId}</div>
+              <div className="dd-doctor-meta-item">Reg. No: MCI-2019-88742</div>
             </div>
           </div>
 
-          <div className="sidebar-section">Portal</div>
+          <div className="dd-sidebar-section">Portal</div>
           {[
-            { icon: '🩺', label: 'Active Consultation', id: 'consult' },
-            { icon: '📋', label: 'Today\'s Patients', id: 'today', badge: '0' },
-            { icon: '📜', label: 'History', id: 'history' },
+            { label: 'Active Consultation', id: 'consult' },
+            { label: 'Today\'s Patients', id: 'today', badge: '0' },
+            { label: 'History', id: 'history' },
           ].map(item => (
             <button key={item.id} id={`doc-nav-${item.id}`}
-              className={`sidebar-item ${item.id === 'consult' ? 'active' : ''}`}
-              style={{ border: 'none', background: 'none', width: '100%' }}>
-              <span className="item-icon">{item.icon}</span>
+              className={`dd-sidebar-item ${item.id === 'consult' ? 'active' : ''}`}>
               <span>{item.label}</span>
-              {item.badge !== undefined && <span className="item-badge" style={{ background: 'rgba(59,130,246,0.15)', color: 'var(--blue)' }}>{item.badge}</span>}
+              {item.badge !== undefined && <span className="dd-item-badge">{item.badge}</span>}
             </button>
           ))}
-
-          <div className="sidebar-section" style={{ marginTop: 12 }}>Account</div>
-          <button id="doctor-logout-btn" className="sidebar-item"
-            style={{ border: 'none', background: 'none', width: '100%', color: '#ef4444' }}
-            onClick={() => { sessionStorage.clear(); router.push('/') }}>
-            <span className="item-icon">🚪</span>
-            <span>Sign Out</span>
-          </button>
         </aside>
 
         {/* Main */}
-        <main className="dash-main">
+        <main className="dd-dash-main">
 
           {/* Step indicator */}
-          <div className="step-bar fade-up">
+          <div className="dd-step-bar">
             {STEPS.map((s, i) => (
-              <div key={i} className="step-item">
-                <div className={`step-dot ${i < stepIndex ? 'done' : i === stepIndex ? 'active' : ''}`}>
-                  {i < stepIndex ? '✓' : s.icon}
+              <div key={i} className="dd-step-item">
+                <div className={`dd-step-dot ${i < stepIndex ? 'done' : i === stepIndex ? 'active' : ''}`}>
+                  {i < stepIndex ? '✓' : s.number}
                 </div>
-                <span className={`step-label ${i < stepIndex ? 'done' : i === stepIndex ? 'active' : ''}`}>
+                <span className={`dd-step-label ${i < stepIndex ? 'done' : i === stepIndex ? 'active' : ''}`}>
                   {s.label}
                 </span>
                 {i < STEPS.length - 1 && (
-                  <div className={`step-line ${i < stepIndex ? 'done' : ''}`} />
+                  <div className={`dd-step-line ${i < stepIndex ? 'done' : ''}`} />
                 )}
               </div>
             ))}
@@ -288,54 +374,51 @@ export default function DoctorDashboard() {
           {/* ─── IDLE ─────────────────────────────────────────── */}
           {step === 'idle' && (
             <>
-              <div className="search-area fade-up-1">
-                <div className="search-title">Find a Patient</div>
-                <p className="search-sub">Search by ABHA ID, ABHA address, or patient name</p>
+              <div className="dd-search-area">
+                <div className="dd-search-title">Find a Patient</div>
+                <p className="dd-search-sub">Search by ABHA ID, ABHA address, or patient name</p>
 
                 {searchError && (
-                  <div className="form-error" style={{ maxWidth: 480, margin: '0 auto 16px', textAlign: 'left' }}>
-                    <span>⚠</span> {searchError}
+                  <div className="dd-form-error">
+                    {searchError}
                   </div>
                 )}
 
                 <form onSubmit={handleSearch}>
-                  <div className="search-row">
-                    <div className="search-input-wrap">
-                      <span className="search-icon">🔍</span>
+                  <div className="dd-search-row">
+                    <div className="dd-search-input-wrap">
                       <input
                         id="patient-search-input"
-                        className="search-input"
+                        className="dd-search-input"
                         placeholder="rahul.sharma@abdm or 12-3456-7890-1234"
                         value={query}
                         onChange={e => setQuery(e.target.value)}
                         autoFocus
                       />
                     </div>
-                    <button id="search-btn" type="submit" className="btn-search">Search</button>
-                    <button type="button" className="btn-scan" id="scan-qr-btn"
+                    <button id="search-btn" type="submit" className="dd-btn-search">Search</button>
+                    <button type="button" className="dd-btn-scan" id="scan-qr-btn"
                       onClick={() => { setQuery('rahul.sharma@abdm'); setTimeout(() => document.getElementById('search-btn')?.click(), 100) }}>
-                      <span>📷</span> Scan QR
+                      Scan QR
                     </button>
                   </div>
                 </form>
 
-                <p className="search-hint">Try: rahul.sharma@abdm or just "rahul"</p>
+                <p className="dd-search-hint">Try: rahul.sharma@abdm or just "rahul"</p>
               </div>
 
-              <div className="idle-state fade-up-2">
-                <div className="idle-icon">🩺</div>
-                <div className="idle-title">No active consultation</div>
-                <p className="idle-sub">Search for a patient above or scan their ABHA QR code to begin a consultation.</p>
+              <div className="dd-idle-state">
+                <div className="dd-idle-title">No active consultation</div>
+                <p className="dd-idle-sub">Search for a patient above or scan their ABHA QR code to begin a consultation.</p>
               </div>
             </>
           )}
 
           {/* ─── SEARCHING ────────────────────────────────────── */}
           {step === 'searching' && (
-            <div className="idle-state fade-up">
-              <div className="idle-icon" style={{ animation: 'spin 1s linear infinite', display: 'inline-block' }}>🔍</div>
-              <div className="idle-title" style={{ marginTop: 8 }}>Looking up patient…</div>
-              <p className="idle-sub">Querying ABDM registry for ABHA ID</p>
+            <div className="dd-idle-state">
+              <div className="dd-idle-title">Looking up patient...</div>
+              <p className="dd-idle-sub">Querying ABDM registry for ABHA ID</p>
             </div>
           )}
 
@@ -343,67 +426,64 @@ export default function DoctorDashboard() {
           {step === 'found' && (
             <>
               {searchError && (
-                <div className="form-error fade-up" style={{ marginBottom: 16 }}>
-                  <span>⚠</span> {searchError}
+                <div className="dd-form-error" style={{ marginBottom: 16 }}>
+                  {searchError}
                 </div>
               )}
-              <div className="patient-found fade-up">
-                <div className="patient-found-top">
-                  <div className="patient-found-avatar">RS</div>
-                  <div className="patient-found-info">
-                    <div className="patient-found-name">Rahul Sharma</div>
-                    <div className="patient-found-meta">
-                      <span>🪪 12-3456-7890-1234</span>
-                      <span>🩸 B+</span>
-                      <span>⚥ Male, 38 yrs</span>
-                      <span>📍 Mumbai, MH</span>
+              <div className="dd-patient-found">
+                <div className="dd-patient-found-top">
+                  <div className="dd-patient-found-avatar">RS</div>
+                  <div className="dd-patient-found-info">
+                    <div className="dd-patient-found-name">Rahul Sharma</div>
+                    <div className="dd-patient-found-meta">
+                      <span>ID: 12-3456-7890-1234</span>
+                      <span>Blood: B+</span>
+                      <span>Male, 38 yrs</span>
+                      <span>Mumbai, MH</span>
                     </div>
                   </div>
                 </div>
 
-                <div className="patient-found-tags">
-                  <span className="tag tag-amber">⚠ Penicillin Allergy</span>
-                  <span className="tag tag-teal">Diabetes — Managed</span>
-                  <span className="tag tag-blue">Hypertension — Managed</span>
-                  <span className="tag tag-purple">2 Active Medicines</span>
+                <div className="dd-patient-found-tags">
+                  <span className="dd-tag dd-tag-red">Penicillin Allergy — Severe</span>
+                  <span className="dd-tag dd-tag-teal">Diabetes — Managed</span>
+                  <span className="dd-tag dd-tag-blue">Hypertension — Managed</span>
+                  <span className="dd-tag dd-tag-purple">2 Active Medicines</span>
                 </div>
 
-                <div className="patient-found-actions">
-                  <button id="request-consent-btn" className="btn-consent" onClick={handleRequestConsent}>
-                    <span>🤝</span> Request Consent
+                <div className="dd-patient-found-actions">
+                  <button id="request-consent-btn" className="dd-btn-consent" onClick={handleRequestConsent}>
+                    Request Consent
                   </button>
-                  <button className="btn-cancel-search" onClick={handleNewConsult} id="cancel-search-btn">
+                  <button className="dd-btn-cancel-search" onClick={handleNewConsult} id="cancel-search-btn">
                     Clear
                   </button>
                 </div>
               </div>
 
-              <div className="idle-state">
-                <div className="idle-icon">🔒</div>
-                <div className="idle-title">Consent required to proceed</div>
-                <p className="idle-sub">Click "Request Consent" above to send a consent notification to Rahul's phone. You can proceed only after they approve.</p>
+              <div className="dd-idle-state" style={{ marginTop: 24 }}>
+                <div className="dd-idle-title">Consent required to proceed</div>
+                <p className="dd-idle-sub">Click "Request Consent" above to send a consent notification to Rahul's phone. You can proceed only after they approve.</p>
               </div>
             </>
           )}
 
           {/* ─── CONSENT SENT ─────────────────────────────────── */}
           {step === 'consent_sent' && (
-            <div className="consent-pending fade-up">
-              <div className="consent-pulse">⏳</div>
-              <div className="consent-pending-title">Waiting for Patient Approval</div>
-              <p className="consent-pending-sub">
+            <div className="dd-consent-pending">
+              <div className="dd-consent-pending-title">Waiting for Patient Approval</div>
+              <p className="dd-consent-pending-sub">
                 A consent notification has been sent to <strong>Rahul Sharma's</strong> registered mobile number. Ask them to open their HealthOS app to approve.
               </p>
 
-              <div className="consent-tip">
-                <span>💡</span>
+              <div className="dd-consent-tip">
                 Ask the patient to open <strong>healthrecord-ivory.vercel.app</strong> and tap Approve
               </div>
 
-              <div className="consent-dots">
-                <div className="consent-dot" />
-                <div className="consent-dot" />
-                <div className="consent-dot" />
+              <div className="dd-consent-dots">
+                <div className="dd-consent-dot" />
+                <div className="dd-consent-dot" />
+                <div className="dd-consent-dot" />
               </div>
 
               <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 20 }}>
@@ -412,197 +492,284 @@ export default function DoctorDashboard() {
             </div>
           )}
 
-          {/* ─── APPROVED — CONSULTATION FORM ─────────────────── */}
+          {/* ─── APPROVED — WORKSPACE WITH OPTIONS (PRESCRIPTION & MEDICAL HISTORY CAROUSEL) ─── */}
           {(step === 'approved' || step === 'submitting') && (
             <>
               {/* Approval banner */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.2)', borderRadius: 10, padding: '12px 18px', marginBottom: 20 }} className="fade-up">
-                <span style={{ fontSize: 20 }}>✅</span>
+              <div className="dd-approval-banner">
                 <div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--green)' }}>Consent Approved</div>
-                  <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Rahul Sharma granted access · Expires after this session</div>
+                  <div className="dd-approval-banner-title">Consent Approved</div>
+                  <div className="dd-approval-banner-sub">Rahul Sharma granted access · Expires after this session</div>
                 </div>
               </div>
 
               {/* Patient summary */}
-              <div className="patient-found fade-up-1" style={{ marginBottom: 20 }}>
-                <div className="patient-found-top" style={{ marginBottom: 12 }}>
-                  <div className="patient-found-avatar">RS</div>
-                  <div className="patient-found-info">
-                    <div className="patient-found-name">Rahul Sharma</div>
-                    <div className="patient-found-meta">
-                      <span>🪪 12-3456-7890-1234</span>
-                      <span>🩸 B+</span>
-                      <span>⚥ Male, 38 yrs</span>
+              <div className="dd-patient-found" style={{ marginBottom: 20 }}>
+                <div className="dd-patient-found-top" style={{ marginBottom: 12 }}>
+                  <div className="dd-patient-found-avatar">RS</div>
+                  <div className="dd-patient-found-info">
+                    <div className="dd-patient-found-name">Rahul Sharma</div>
+                    <div className="dd-patient-found-meta">
+                      <span>ID: 12-3456-7890-1234</span>
+                      <span>Blood: B+</span>
+                      <span>Male, 38 yrs</span>
                     </div>
                   </div>
                 </div>
-                <div className="patient-found-tags">
-                  <span className="tag tag-red">🚨 Penicillin — Severe Allergy</span>
-                  <span className="tag tag-amber">Diabetes Type 2 since 2018</span>
-                  <span className="tag tag-amber">Hypertension since 2020</span>
-                  <span className="tag tag-blue">On Metformin + Telmisartan</span>
+                <div className="dd-patient-found-tags">
+                  <span className="dd-tag dd-tag-red">Penicillin Allergy — Severe</span>
+                  <span className="dd-tag dd-tag-amber">Diabetes Type 2 since 2018</span>
+                  <span className="dd-tag dd-tag-amber">Hypertension since 2020</span>
+                  <span className="dd-tag dd-tag-blue">On Metformin + Telmisartan</span>
                 </div>
               </div>
 
-              {/* Consultation form */}
-              <div className="consult-container fade-up-2">
-                <div className="consult-header">
-                  <div className="consult-header-icon">🩺</div>
-                  <div>
-                    <div className="consult-header-title">New Consultation</div>
-                    <div className="consult-header-sub">{doctorName} · Apollo Clinic, Andheri · {new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
+              {/* Main Box with Tabbed Options */}
+              <div className="dd-workspace-box">
+                {/* Tab Header Bar */}
+                <div className="dd-tab-header">
+                  <div className="dd-tab-buttons">
+                    <button
+                      className={`dd-tab-btn ${approvedTab === 'prescription' ? 'active' : ''}`}
+                      onClick={() => setApprovedTab('prescription')}
+                    >
+                      Write Consultation & Prescription
+                    </button>
+                    <button
+                      className={`dd-tab-btn ${approvedTab === 'history' ? 'active' : ''}`}
+                      onClick={() => setApprovedTab('history')}
+                    >
+                      Patient Medical History ({PATIENT_HISTORY.length})
+                    </button>
                   </div>
                 </div>
 
-                <div className="consult-body">
-                  {/* Chief Complaint */}
-                  <div>
-                    <div className="consult-section-label">Chief Complaint *</div>
-                    <textarea
-                      id="chief-complaint"
-                      className="consult-textarea"
-                      style={{ minHeight: 70 }}
-                      placeholder="e.g. Patient presents with 3-day history of fever and sore throat…"
-                      value={chiefComplaint}
-                      onChange={e => setChiefComplaint(e.target.value)}
-                    />
-                  </div>
+                {/* Option 1: Prescription Form */}
+                {approvedTab === 'prescription' && (
+                  <div className="dd-consult-container" style={{ border: 'none', borderRadius: 0 }}>
+                    <div className="dd-consult-header">
+                      <div>
+                        <div className="dd-consult-header-title">New Consultation & Prescription</div>
+                        <div className="dd-consult-header-sub">{doctorName} · Apollo Clinic, Andheri · {new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
+                      </div>
+                    </div>
 
-                  {/* Diagnosis */}
-                  <div>
-                    <div className="consult-section-label">Diagnosis * <span style={{ textTransform: 'none', fontWeight: 400, color: 'var(--text-muted)', fontSize: 11 }}>(include ICD-11 code if known)</span></div>
-                    <input
-                      id="diagnosis-input"
-                      className="consult-input"
-                      placeholder="e.g. Viral Upper Respiratory Tract Infection (ICD-11: CA08.0)"
-                      value={diagnosis}
-                      onChange={e => setDiagnosis(e.target.value)}
-                    />
-                  </div>
+                    <div className="dd-consult-body">
+                      {/* Chief Complaint */}
+                      <div>
+                        <div className="dd-consult-section-label">Chief Complaint *</div>
+                        <textarea
+                          id="chief-complaint"
+                          className="dd-consult-textarea"
+                          placeholder="e.g. Patient presents with 3-day history of fever and sore throat..."
+                          value={chiefComplaint}
+                          onChange={e => setChiefComplaint(e.target.value)}
+                        />
+                      </div>
 
-                  {/* Medicines */}
-                  <div>
-                    <div className="consult-section-label">Prescription</div>
-                    <div className="medicine-rows">
-                      {medicines.map((med, idx) => (
-                        <div key={med.id} className="medicine-row">
-                          <input
-                            id={`med-drug-${idx}`}
-                            list="drug-list"
-                            placeholder="Drug name"
-                            value={med.drug}
-                            onChange={e => handleMedicineChange(med.id, 'drug', e.target.value)}
-                            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text-primary)', fontFamily: 'var(--font)', fontSize: 13, padding: '7px 10px', outline: 'none' }}
-                          />
-                          <datalist id="drug-list">
-                            {MOCK_DRUGS.map(d => <option key={d} value={d} />)}
-                          </datalist>
-                          <select value={med.dose} onChange={e => handleMedicineChange(med.id, 'dose', e.target.value)}>
-                            {['100mg','250mg','400mg','500mg','650mg','1g','5mg','10mg','20mg','40mg','80mg'].map(d => <option key={d}>{d}</option>)}
-                          </select>
-                          <select value={med.freq} onChange={e => handleMedicineChange(med.id, 'freq', e.target.value)}>
-                            {['OD','BD','TDS','QID','SOS','At bedtime'].map(f => <option key={f}>{f}</option>)}
-                          </select>
-                          <select value={med.duration} onChange={e => handleMedicineChange(med.id, 'duration', e.target.value)}>
-                            {['3 days','5 days','7 days','10 days','14 days','1 month','3 months','Ongoing'].map(d => <option key={d}>{d}</option>)}
-                          </select>
-                          <select value={med.instructions} onChange={e => handleMedicineChange(med.id, 'instructions', e.target.value)}>
-                            {['After meals','Before meals','With meals','At bedtime','Empty stomach','With water'].map(i => <option key={i}>{i}</option>)}
-                          </select>
-                          <button type="button" className="btn-remove-med" onClick={() => handleRemoveMedicine(med.id)}>×</button>
+                      {/* Diagnosis */}
+                      <div>
+                        <div className="dd-consult-section-label">Diagnosis * <span className="dd-consult-section-label-sub">(include ICD-11 code if known)</span></div>
+                        <input
+                          id="diagnosis-input"
+                          className="dd-consult-input"
+                          placeholder="e.g. Viral Upper Respiratory Tract Infection (ICD-11: CA08.0)"
+                          value={diagnosis}
+                          onChange={e => setDiagnosis(e.target.value)}
+                        />
+                      </div>
+
+                      {/* Medicines */}
+                      <div>
+                        <div className="dd-consult-section-label">Prescription</div>
+                        <div className="dd-medicine-rows">
+                          {medicines.map((med, idx) => (
+                            <div key={med.id} className="dd-medicine-row">
+                              <input
+                                id={`med-drug-${idx}`}
+                                list="drug-list"
+                                placeholder="Drug name"
+                                value={med.drug}
+                                onChange={e => handleMedicineChange(med.id, 'drug', e.target.value)}
+                                className="dd-consult-input dd-med-input"
+                              />
+                              <datalist id="drug-list">
+                                {MOCK_DRUGS.map(d => <option key={d} value={d} />)}
+                              </datalist>
+                              <select className="dd-consult-select" value={med.dose} onChange={e => handleMedicineChange(med.id, 'dose', e.target.value)}>
+                                {['100mg','250mg','400mg','500mg','650mg','1g','5mg','10mg','20mg','40mg','80mg'].map(d => <option key={d}>{d}</option>)}
+                              </select>
+                              <select className="dd-consult-select" value={med.freq} onChange={e => handleMedicineChange(med.id, 'freq', e.target.value)}>
+                                {['OD','BD','TDS','QID','SOS','At bedtime'].map(f => <option key={f}>{f}</option>)}
+                              </select>
+                              <select className="dd-consult-select" value={med.duration} onChange={e => handleMedicineChange(med.id, 'duration', e.target.value)}>
+                                {['3 days','5 days','7 days','10 days','14 days','1 month','3 months','Ongoing'].map(d => <option key={d}>{d}</option>)}
+                              </select>
+                              <select className="dd-consult-select" value={med.instructions} onChange={e => handleMedicineChange(med.id, 'instructions', e.target.value)}>
+                                {['After meals','Before meals','With meals','At bedtime','Empty stomach','With water'].map(i => <option key={i}>{i}</option>)}
+                              </select>
+                              <button type="button" className="dd-btn-remove-med" onClick={() => handleRemoveMedicine(med.id)}>Remove</button>
+                            </div>
+                          ))}
+                          <button type="button" className="dd-btn-add-med" id="add-medicine-btn" onClick={handleAddMedicine}>
+                            Add Medicine
+                          </button>
                         </div>
-                      ))}
-                      <button type="button" className="btn-add-med" id="add-medicine-btn" onClick={handleAddMedicine}>
-                        <span>+</span> Add Medicine
+                      </div>
+
+                      {/* Lab Tests */}
+                      <div>
+                        <div className="dd-consult-section-label">Lab Orders <span className="dd-consult-section-label-sub">({labTests.length} selected)</span></div>
+                        <div className="dd-lab-grid">
+                          {LAB_TESTS.map(test => (
+                            <div key={test} id={`lab-${test.split(' ')[0]}`}
+                              className={`dd-lab-check ${labTests.includes(test) ? 'checked' : ''}`}
+                              onClick={() => handleToggleLab(test)}>
+                              <div className="dd-lab-check-box">{labTests.includes(test) ? '✓' : ''}</div>
+                              {test}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Advice */}
+                      <div>
+                        <div className="dd-consult-section-label">Advice & Instructions</div>
+                        <textarea
+                          id="advice-input"
+                          className="dd-consult-textarea"
+                          placeholder="Rest, fluids, dietary advice, activity restrictions..."
+                          value={advice}
+                          onChange={e => setAdvice(e.target.value)}
+                        />
+                      </div>
+
+                      {/* Follow-up */}
+                      <div>
+                        <div className="dd-consult-section-label">Follow-up</div>
+                        <div className="dd-followup-row">
+                          {FOLLOW_UPS.map(f => (
+                            <div key={f} id={`followup-${f.replace(' ','-')}`}
+                              className={`dd-followup-opt ${followUp === f ? 'selected' : ''}`}
+                              onClick={() => setFollowUp(f)}>
+                              {followUp === f ? '✓ ' : ''}{f}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="dd-consult-footer">
+                      <div className="dd-consult-footer-note">
+                        Record will be signed, saved, and queued for ABDM FHIR sync
+                      </div>
+                      <button
+                        id="submit-consultation-btn"
+                        className="dd-btn-submit-consult"
+                        onClick={handleSubmitConsult}
+                        disabled={!chiefComplaint.trim() || !diagnosis.trim() || submitting}
+                      >
+                        {submitting ? 'Saving...' : 'Submit Consultation'}
                       </button>
                     </div>
                   </div>
+                )}
 
-                  {/* Lab Tests */}
-                  <div>
-                    <div className="consult-section-label">Lab Orders <span style={{ textTransform: 'none', fontWeight: 400, fontSize: 11 }}>({labTests.length} selected)</span></div>
-                    <div className="lab-grid">
-                      {LAB_TESTS.map(test => (
-                        <div key={test} id={`lab-${test.split(' ')[0]}`}
-                          className={`lab-check ${labTests.includes(test) ? 'checked' : ''}`}
-                          onClick={() => handleToggleLab(test)}>
-                          <div className="lab-check-box">{labTests.includes(test) ? '✓' : ''}</div>
-                          {test}
-                        </div>
+                {/* Option 2: Medical History Carousel */}
+                {approvedTab === 'history' && (
+                  <div className="dd-carousel-wrapper">
+                    <div className="dd-carousel-header">
+                      <div>
+                        <h3 className="dd-carousel-title">Patient History Records</h3>
+                        <p className="dd-carousel-sub">Shared via ABDM consent flow · Clean FHIR formatted records</p>
+                      </div>
+                      <div className="dd-carousel-controls">
+                        <button
+                          className="dd-carousel-arrow"
+                          onClick={() => setCurrentSlide(prev => Math.max(0, prev - 1))}
+                          disabled={currentSlide === 0}
+                        >
+                          Previous
+                        </button>
+                        <span className="dd-carousel-counter">{currentSlide + 1} of {PATIENT_HISTORY.length}</span>
+                        <button
+                          className="dd-carousel-arrow"
+                          onClick={() => setCurrentSlide(prev => Math.min(PATIENT_HISTORY.length - 1, prev + 1))}
+                          disabled={currentSlide === PATIENT_HISTORY.length - 1}
+                        >
+                          Next
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Carousel Active Card Display */}
+                    <div className="dd-carousel-card">
+                      <div className="dd-carousel-card-top">
+                        <span className={`dd-tag ${TYPE_BADGE_CLASSES[PATIENT_HISTORY[currentSlide].type] || 'dd-tag-blue'}`}>
+                          {PATIENT_HISTORY[currentSlide].type}
+                        </span>
+                        <span className="dd-carousel-card-date">{PATIENT_HISTORY[currentSlide].date}</span>
+                      </div>
+                      <h4 className="dd-carousel-card-title">{PATIENT_HISTORY[currentSlide].title}</h4>
+                      <div className="dd-carousel-card-meta">
+                        {PATIENT_HISTORY[currentSlide].doctor} &nbsp;·&nbsp; {PATIENT_HISTORY[currentSlide].facility}
+                      </div>
+                      <div className="dd-carousel-card-detail">
+                        {PATIENT_HISTORY[currentSlide].detail}
+                      </div>
+                      <div className="dd-carousel-card-tags">
+                        {PATIENT_HISTORY[currentSlide].tags.map((t, idx) => (
+                          <span key={idx} className="dd-tag dd-tag-blue" style={{ background: '#ffffff' }}>{t}</span>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Carousel Dots */}
+                    <div className="dd-carousel-dots">
+                      {PATIENT_HISTORY.map((_, idx) => (
+                        <button
+                          key={idx}
+                          className={`dd-carousel-dot ${currentSlide === idx ? 'active' : ''}`}
+                          onClick={() => setCurrentSlide(idx)}
+                        />
                       ))}
                     </div>
-                  </div>
 
-                  {/* Advice */}
-                  <div>
-                    <div className="consult-section-label">Advice & Instructions</div>
-                    <textarea
-                      id="advice-input"
-                      className="consult-textarea"
-                      placeholder="Rest, fluids, dietary advice, activity restrictions…"
-                      value={advice}
-                      onChange={e => setAdvice(e.target.value)}
-                    />
-                  </div>
-
-                  {/* Follow-up */}
-                  <div>
-                    <div className="consult-section-label">Follow-up</div>
-                    <div className="followup-row">
-                      {FOLLOW_UPS.map(f => (
-                        <div key={f} id={`followup-${f.replace(' ','-')}`}
-                          className={`followup-opt ${followUp === f ? 'selected' : ''}`}
-                          onClick={() => setFollowUp(f)}>
-                          {followUp === f ? '✓ ' : ''}{f}
-                        </div>
-                      ))}
+                    {/* Quick Switch Action */}
+                    <div style={{ marginTop: 24, textAlign: 'center' }}>
+                      <button
+                        className="dd-btn-consent"
+                        onClick={() => setApprovedTab('prescription')}
+                      >
+                        Return to Consultation & Prescription Form
+                      </button>
                     </div>
                   </div>
-                </div>
-
-                <div className="consult-footer">
-                  <div className="consult-footer-note">
-                    <span>🔒</span>
-                    Record will be signed, saved, and queued for ABDM FHIR sync
-                  </div>
-                  <button
-                    id="submit-consultation-btn"
-                    className="btn-submit-consult"
-                    onClick={handleSubmitConsult}
-                    disabled={!chiefComplaint.trim() || !diagnosis.trim() || submitting}
-                  >
-                    {submitting
-                      ? <><span className="spinner" style={{ borderTopColor: '#050d1a', borderColor: 'rgba(5,13,26,0.3)' }} /> Saving…</>
-                      : <><span>✅</span> Submit Consultation</>
-                    }
-                  </button>
-                </div>
+                )}
               </div>
             </>
           )}
 
           {/* ─── SUBMITTED ────────────────────────────────────── */}
           {step === 'submitted' && (
-            <div className="success-card fade-up">
-              <div className="success-icon">✅</div>
-              <div className="success-title">Consultation Submitted</div>
-              <p className="success-sub">
+            <div className="dd-success-card">
+              <div className="dd-success-icon">✓</div>
+              <div className="dd-success-title">Consultation Submitted</div>
+              <p className="dd-success-sub">
                 The consultation has been saved and the record is now visible on Rahul Sharma&apos;s patient timeline. FHIR sync queued for ABDM.
               </p>
-              <div className="success-record-id">Record ID: {recordId}</div>
-              <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap', marginTop: 24 }}>
-                <span className="tag tag-green">✓ Saved to DB</span>
-                <span className="tag tag-blue">✓ Patient Notified</span>
-                <span className="tag tag-amber">⏳ FHIR Sync Queued</span>
+              <div className="dd-success-record-id">Record ID: {recordId}</div>
+              <div className="dd-success-tags">
+                <span className="dd-tag dd-tag-green">✓ Saved to DB</span>
+                <span className="dd-tag dd-tag-blue">✓ Patient Notified</span>
+                <span className="dd-tag dd-tag-amber">Pending FHIR Sync</span>
               </div>
-              <div className="success-actions" style={{ marginTop: 28 }}>
-                <button id="new-consultation-btn" className="btn-submit-consult" onClick={handleNewConsult}>
-                  <span>🩺</span> New Consultation
+              <div className="dd-success-actions">
+                <button id="new-consultation-btn" className="dd-btn-submit-consult" onClick={handleNewConsult}>
+                  New Consultation
                 </button>
-                <button className="btn-outline" style={{ width: 'auto', padding: '14px 24px', marginTop: 0 }}
-                  onClick={() => { window.open('/', '_blank') }}>
-                  View Patient App →
+                <button className="dd-btn-outline" onClick={() => { window.open('/', '_blank') }}>
+                  View Patient App
                 </button>
               </div>
             </div>
@@ -613,3 +780,4 @@ export default function DoctorDashboard() {
     </div>
   )
 }
+

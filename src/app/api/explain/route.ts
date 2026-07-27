@@ -6,87 +6,101 @@ export async function POST(req: Request) {
 
     const apiKey = process.env.GEMINI_API_KEY
 
-    // If API key is not present, generate a highly realistic mock explanation for the demo
     if (!apiKey) {
-      await new Promise((resolve) => setTimeout(resolve, 1500)) // simulated lag
+      await new Promise((resolve) => setTimeout(resolve, 1200))
 
       let mockText = ''
 
       if (type === 'Prescription') {
-        mockText = `### 💊 **Your Medication Guide** (Simulated AI)
+        mockText = `### Your Medication Guide
 
-This prescription is targeted at addressing a symptomatic acute infection (e.g., fever/respiratory issues) or chronic maintenance depending on your active ingredients.
+This prescription addresses your current symptoms. Here is what each medicine does and how to take it correctly.
 
-*   **Active Ingredients & Intent:**
-    *   **Paracetamol / Acetaminophen:** Acts on the central nervous system to relieve pain and reduce fever. Essential to monitor dosage to not exceed 4g daily to avoid liver toxicity.
-    *   **Cetirizine:** An H1-receptor antagonist. Blocks histamine to reduce allergic reactions, runny nose, and sneezing. It is non-sedating for most, but best taken in the evening if drowsiness occurs.
-    *   **Azithromycin:** A macrolide antibiotic. Stops bacterial growth by interfering with their protein synthesis. **Must complete the entire course** even if you feel better to prevent antibiotic resistance.
-*   **Lifestyle Advisory:** Keep well hydrated. Rest is critical for recovery. Avoid alcohol while taking these medications.
-`
+**Active Medications & Their Purpose**
+
+* **Paracetamol / Acetaminophen:** Works on your central nervous system to reduce fever and relieve pain. Do not exceed 4 grams (4000mg) per day. Take with water, not on an empty stomach.
+* **Cetirizine:** An antihistamine that blocks the chemical causing allergic reactions — reduces runny nose, sneezing, and throat irritation. Can cause mild drowsiness in some people; take in the evening if so.
+* **Azithromycin:** An antibiotic that stops bacterial growth by interfering with their protein production. **Complete the full course even if you feel better early.** Stopping early can cause antibiotic resistance.
+
+**Important Lifestyle Advice**
+
+* Drink at least 2–3 litres of water daily during this course.
+* Get adequate rest — sleep accelerates recovery from viral infections.
+* Avoid alcohol entirely while on these medications.
+* Return to your doctor immediately if you develop skin rash, difficulty breathing, or symptoms worsen after 3 days.`
+
       } else if (type === 'Lab Report') {
-        mockText = `### 🧪 **Your Lab Report Explained** (Simulated AI)
+        mockText = `### Your Lab Report Explained
 
-Here is a plain-language summary of your diagnostic results:
+Here is a plain-language summary of your diagnostic results and what they mean for your health.
 
-*   **WBC (White Blood Cells) - 11,200/µL:** This is slightly above the typical reference range (4,000 - 11,000). Elevate counts usually suggest that your immune system is actively fighting off an infection or inflammation.
-*   **CRP (C-Reactive Protein) - 18 mg/L:** Elevated (normal is < 5). CRP is a marker produced by the liver in response to active inflammation. Combined with the WBC, it confirms a mild acute immune/inflammatory response (likely related to your recent fever/viral symptoms).
-*   **HbA1c - 7.1%:** This reflects your average blood glucose over the past 3 months. For an individual managing Type 2 Diabetes, this is generally close to target, showing stable glycemic control, though slight dietary adjustments could help optimize it.
-*   **Actionable Next Steps:** Share these values with your primary doctor. Monitor if symptoms persist beyond 5 days.
-`
+**Key Values & What They Mean**
+
+* **WBC (White Blood Cells) — 11,200/uL:** Slightly above the normal range of 4,000–11,000. An elevated count means your immune system is actively fighting an infection or inflammation. This is consistent with your recent symptoms.
+* **CRP (C-Reactive Protein) — 18 mg/L:** Elevated (normal is below 5 mg/L). CRP is produced by the liver when there is active inflammation in the body. Combined with the elevated WBC, this confirms a mild acute immune response — likely from your recent fever or viral illness.
+* **HbA1c — 7.1%:** This measures your average blood sugar over the past 3 months. For a person managing Type 2 Diabetes, 7.1% is close to target (under 7.0% is ideal) and shows your diabetes is reasonably controlled. Small dietary improvements — reducing refined carbohydrates and sugar — could help push this below 7%.
+
+**Next Steps**
+
+* Share these results with your treating doctor at your next visit.
+* Monitor your symptoms. If fever or body ache persists beyond 5 days, seek a follow-up.
+* Continue your prescribed diabetes and blood pressure medications without interruption.`
+
       } else {
-        mockText = `### 🩺 **Clinical Consultation Summary** (Simulated AI)
+        mockText = `### Consultation Summary
 
-Your recent consultation covers: **${title}**
+Your recent visit covers: **${title}**
 
-*   **Core Diagnosis:** ${details || 'Acute respiratory/viral management.'}
-*   **Key Focus:** The clinician focuses on symptom resolution and targeted therapy. If antibiotics or chronic medicines were prescribed, adherence is critical.
-*   **Action Plan:** Ensure you rest, take prescribed medications on schedule, and seek immediate follow-up if you experience shortness of breath, high persistent fever, or allergic rashes.
-`
+**What Your Doctor Found**
+
+* ${details || 'Your doctor evaluated your current symptoms and conducted a clinical examination.'}
+* The clinical assessment focuses on resolving your symptoms effectively and safely.
+* If medications have been prescribed, taking them consistently and completing the full course is essential.
+
+**Your Action Plan**
+
+* Take all prescribed medications at the correct time and dose.
+* Rest adequately and stay well hydrated.
+* Seek immediate medical attention if you experience shortness of breath, persistent high fever (above 103F), severe chest pain, or any new allergic reaction.
+* Attend your scheduled follow-up appointment even if you feel better.`
       }
 
-      return NextResponse.json({
-        text: mockText,
-        isSimulated: true
-      })
+      return NextResponse.json({ text: mockText, isSimulated: true })
     }
 
-    // Call the real Gemini API
-    const prompt = `You are a compassionate, clear AI medical assistant for HealthOS, a Personal Health Record portal. 
-Explain this health record in plain English for a patient. Be warm, structured, and easy to understand.
-Explain what each test, diagnosis, or medicine means, what to look out for, and basic lifestyle/advisory advice.
-CRITICAL: Do not give a final diagnosis or override a doctor's advice. Include a brief medical disclaimer at the bottom.
-Format the output nicely using Markdown with bullet points.
+    // Real Gemini API call
+    const prompt = `You are a compassionate, clear AI medical assistant for Seam, a Personal Health Record platform built on India's ABDM infrastructure.
+Explain this health record in plain English for a patient who may not have medical training. Be warm, structured, and genuinely helpful.
+For each test result, diagnosis, or medication: explain what it is, what it means for the patient, and what practical action they should take.
+Include a brief, reassuring medical disclaimer at the end.
+IMPORTANT: Do not give a final diagnosis or override the treating doctor's advice.
+Format using Markdown: use ### for main heading, **bold** for key terms, and * for bullet points. No emojis.
 
-Here is the record info:
+Record details:
 - Type: ${type}
 - Title: ${title}
-- Details/Notes: ${details}
-- Prescribed Medicines: ${JSON.stringify(medicines || [])}
-`
+- Details / Clinical Notes: ${details}
+- Prescribed Medicines: ${JSON.stringify(medicines || [])}`
 
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }]
-        })
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
       }
     )
 
     if (!response.ok) {
       const errText = await response.text()
-      throw new Error(`Gemini API responded with status ${response.status}: ${errText}`)
+      throw new Error(`Gemini API error ${response.status}: ${errText}`)
     }
 
     const data = await response.json()
     const responseText = data.candidates?.[0]?.content?.parts?.[0]?.text || 'No explanation generated.'
 
-    return NextResponse.json({
-      text: responseText,
-      isSimulated: false
-    })
+    return NextResponse.json({ text: responseText, isSimulated: false })
+
   } catch (error: unknown) {
     console.error('AI Explanation Error:', error)
     return NextResponse.json(

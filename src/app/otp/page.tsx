@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 
 export default function OtpPage() {
   const router = useRouter()
@@ -13,12 +14,11 @@ export default function OtpPage() {
   const inputRefs = useRef<(HTMLInputElement | null)[]>([])
 
   useEffect(() => {
-    const val = sessionStorage.getItem('abha_login_value') || '98XXXXXXXX'
+    const val = sessionStorage.getItem('abha_login_value') || '12-3456-7890-1234'
     setAbhaValue(val)
     inputRefs.current[0]?.focus()
   }, [])
 
-  // Countdown timer
   useEffect(() => {
     if (resendTimer <= 0) return
     const t = setTimeout(() => setResendTimer(s => s - 1), 1000)
@@ -49,6 +49,11 @@ export default function OtpPage() {
     }
   }
 
+  const handleFillDemoOtp = () => {
+    setOtp(['1', '2', '3', '4', '5', '6'])
+    setError('')
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     const code = otp.join('')
@@ -60,20 +65,17 @@ export default function OtpPage() {
     setLoading(true)
     setError('')
 
-    // Simulate ABDM OTP verification (POST /v3/profile/login/verify)
-    await new Promise(r => setTimeout(r, 1600))
+    await new Promise(r => setTimeout(r, 1000))
 
-    // Mock: any OTP works in prototype (real: must match ABDM response)
     if (code === '000000') {
       setError('Incorrect OTP. Please try again.')
       setLoading(false)
       return
     }
 
-    // Store auth state
     sessionStorage.setItem('auth_verified', 'true')
     sessionStorage.setItem('patient_name', 'Rahul Sharma')
-    sessionStorage.setItem('patient_abha', '12-3456-7890-1234')
+    sessionStorage.setItem('patient_abha', abhaValue || '12-3456-7890-1234')
 
     router.push('/dashboard')
   }
@@ -90,82 +92,112 @@ export default function OtpPage() {
     : abhaValue
 
   return (
-    <div className="auth-page">
-      <div className="auth-bg" />
-
-      <div className="auth-card fade-up">
-        <div className="auth-card-glow" />
-
-        <div className="auth-logo">
-          <div className="logo-icon" style={{ width: 32, height: 32, fontSize: 16, background: 'linear-gradient(135deg,#00d4aa,#3b82f6)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>⚕</div>
-          <span style={{ fontSize: 17, fontWeight: 700 }}>HealthOS</span>
-        </div>
-
-        <h1 className="auth-title">Verify your identity</h1>
-        <p className="auth-subtitle">
-          We&apos;ve sent a 6-digit OTP to the mobile number linked to your ABHA.
-        </p>
-
-        <div className="abha-pill">
-          <span>🪪</span>
-          <span>{maskedValue}</span>
-        </div>
-
-        {error && (
-          <div className="form-error">
-            <span>⚠</span> {error}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit}>
-          <div className="otp-grid" onPaste={handlePaste}>
-            {otp.map((digit, i) => (
-              <input
-                key={i}
-                id={`otp-${i}`}
-                ref={el => { inputRefs.current[i] = el }}
-                type="text"
-                inputMode="numeric"
-                maxLength={1}
-                className="otp-input"
-                value={digit}
-                onChange={e => handleChange(i, e.target.value)}
-                onKeyDown={e => handleKeyDown(i, e)}
-                autoComplete="off"
-              />
-            ))}
+    <div className="split-login-page">
+      <div className="split-container">
+        
+        {/* Left Form Section */}
+        <div className="split-left">
+          <div className="login-header">
+            <Link href="/" className="v2-logo">
+              <div className="v2-logo-icon">S</div>
+              <span className="v2-logo-text">Seam</span>
+            </Link>
+            <span className="v2-abdm-pill">ABDM V3 Sandbox</span>
           </div>
 
-          <p className="otp-hint">
-            Enter any 6 digits to continue (prototype mode)
-          </p>
+          <div className="login-card-body">
+            <h1>Verify your identity</h1>
+            <p className="login-sub">
+              We&apos;ve sent a 6-digit verification code to the mobile number registered with <strong>{maskedValue}</strong>.
+            </p>
 
-          <button
-            id="verify-otp-btn"
-            type="submit"
-            className="btn-submit"
-            disabled={loading || otp.join('').length < 6}
-          >
-            {loading ? <><span className="spinner" /> Verifying…</> : 'Verify & Continue →'}
-          </button>
-        </form>
+            {/* Quick Demo OTP Banner */}
+            <div className="demo-credentials-banner">
+              <div className="demo-banner-title">
+                <span>Prototype Mode Credentials</span>
+              </div>
+              <p>Any 6-digit code is valid for demo testing:</p>
+              <button type="button" onClick={handleFillDemoOtp} className="btn-demo-fill">
+                Auto-Fill Demo OTP (123456)
+              </button>
+            </div>
 
-        <div className="otp-resend">
-          {resendTimer > 0
-            ? <>Resend OTP in <strong style={{ color: 'var(--teal)' }}>{resendTimer}s</strong></>
-            : <>Didn&apos;t receive it?
-                <button onClick={handleResend} id="resend-btn">Resend OTP</button>
-              </>
-          }
+            {error && <div className="login-error">{error}</div>}
+
+            <form onSubmit={handleSubmit} className="login-form">
+              <div className="otp-inputs-row" onPaste={handlePaste}>
+                {otp.map((digit, i) => (
+                  <input
+                    key={i}
+                    id={`otp-${i}`}
+                    ref={el => { inputRefs.current[i] = el }}
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={1}
+                    className="v2-otp-box"
+                    value={digit}
+                    onChange={e => handleChange(i, e.target.value)}
+                    onKeyDown={e => handleKeyDown(i, e)}
+                    autoComplete="off"
+                  />
+                ))}
+              </div>
+
+              <button
+                id="verify-otp-btn"
+                type="submit"
+                className="v2-btn-primary full-width"
+                disabled={loading || otp.join('').length < 6}
+              >
+                {loading ? 'Verifying OTP…' : 'Verify & Continue →'}
+              </button>
+            </form>
+
+            <div className="otp-resend-wrap">
+              {resendTimer > 0 ? (
+                <span>Resend OTP in <strong style={{ color: '#2563eb' }}>{resendTimer}s</strong></span>
+              ) : (
+                <button type="button" onClick={handleResend} className="btn-resend">
+                  Didn&apos;t receive it? Resend OTP
+                </button>
+              )}
+            </div>
+
+            <div className="login-footer-links">
+              <button type="button" onClick={() => router.push('/login')} className="btn-back-link">
+                ← Back to Login
+              </button>
+            </div>
+          </div>
         </div>
 
-        <button
-          className="btn-outline"
-          onClick={() => router.push('/login')}
-          id="back-to-login"
-        >
-          ← Back to Login
-        </button>
+        {/* Right Info Section */}
+        <div className="split-right">
+          <div className="right-content">
+            <span className="right-badge">ABDM Gateway Integration</span>
+            <h2>Instant authentication, zero passwords to remember</h2>
+            <p>
+              By verifying via government OTP, your health locker stays encrypted and protected against unauthorized logins.
+            </p>
+
+            <div className="trust-feature-list">
+              <div className="trust-item">
+                <div>
+                  <h4>Demo Credentials Included</h4>
+                  <p>In prototype mode, use any 6-digit code (e.g. 123456) or tap the auto-fill button to instantly access the health locker.</p>
+                </div>
+              </div>
+
+              <div className="trust-item">
+                <div>
+                  <h4>Registered Mobile Security</h4>
+                  <p>OTP is generated by the NHA/ABDM Gateway to match your official Aadhaar record.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
       </div>
     </div>
   )
