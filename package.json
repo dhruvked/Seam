@@ -9,6 +9,10 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@mantine/core": "^9.5.1",
+    "@mantine/hooks": "^9.5.1",
+    "@neondatabase/serverless": "^1.1.0",
+    "drizzle-orm": "^0.45.2",
     "next": "^16.2.10",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
@@ -17,6 +21,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "drizzle-kit": "^0.31.10",
     "typescript": "^5"
   }
 }

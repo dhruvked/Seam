@@ -1,5 +1,8 @@
 import type { Metadata } from 'next'
+import '@mantine/core/styles.css'
 import './globals.css'
+
+
 
 export const metadata: Metadata = {
   title: 'HealthOS — Your Complete Health Record',
