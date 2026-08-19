@@ -27,7 +27,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const body = await req.json()
-    const { doctorId, patientName, patientAge, patientGender, diagnosis, medicines, advice, followUp } = body
+    const { doctorId, patientName, patientAge, patientGender, diagnosis, medicines, tests, advice, followUp } = body
 
     if (!doctorId || !patientName) {
       return NextResponse.json(
@@ -43,6 +43,7 @@ export async function POST(req: Request) {
       patientGender: patientGender || '',
       diagnosis: diagnosis || '',
       medicines: medicines || [],
+      tests: tests || '',
       advice: advice || '',
       followUp: followUp || ''
     })

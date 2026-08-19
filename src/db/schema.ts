@@ -23,8 +23,10 @@ export const prescriptions = pgTable('prescriptions', {
   patientGender: text('patient_gender').default(''),
   diagnosis: text('diagnosis').default(''),
   medicines: text('medicines').default('[]'),
+  tests: text('tests').default(''),
   advice: text('advice').default(''),
   followUp: text('follow_up').default(''),
+  fhirBundle: text('fhir_bundle').default(''),
   createdAt: timestamp('created_at').defaultNow()
 })
 

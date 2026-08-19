@@ -1479,20 +1479,60 @@ body {
   to   { transform: translateY(0); opacity: 1; }
 }
 
-/* Print */
+/* Standard A4 Medical Print Page Setup */
+@page {
+  size: A4 portrait;
+  margin: 10mm;
+}
+
 @media print {
-  body > *:not(.modal-backdrop) { display: none !important; }
-  .modal-backdrop { position: static !important; background: white !important; padding: 0; display: block; }
-  .modal-content  { border: none; background: white !important; box-shadow: none; color: black !important; max-height: none; border-radius: 0; }
-  .modal-footer, .modal-close, .btn-ai-explain, .modal-btn-ghost, .ai-explainer-panel { display: none !important; }
-  .modal-hero { background: white !important; border-bottom: 1px solid #ddd; }
-  .modal-chips { background: white !important; border-bottom: 1px solid #eee; }
-  .modal-section-label { color: #555 !important; }
-  .modal-notes { border: 1px solid #eee !important; background: #fafafa !important; color: black !important; }
-  .modal-med-row { border: 1px solid #ddd !important; background: #f8f8ff !important; }
-  .modal-med-drug { color: #1a4db3 !important; }
-  .modal-lab-chip { background: #f4f0ff !important; border: 1px solid #c4b5fd !important; color: #4c1d95 !important; }
-  .tag { border: 1px solid #ccc !important; background: transparent !important; color: black !important; }
+  /* Hide standard page elements & action controls */
+  header, footer, nav, button, .hide-on-print {
+    display: none !important;
+  }
+
+  /* Force Body and Mantine Portal visibility */
+  body, html {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    height: auto !important;
+    width: 210mm !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    font-size: 12pt !important;
+  }
+
+  /* Make Mantine Modal content visible and locked to A4 width */
+  .mantine-Modal-root,
+  .mantine-Modal-inner,
+  .mantine-Modal-content,
+  .mantine-Modal-body {
+    display: block !important;
+    position: static !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+    box-shadow: none !important;
+    border: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    max-width: 210mm !important;
+    overflow: visible !important;
+    visibility: visible !important;
+  }
+
+  .mantine-Modal-header,
+  .mantine-Modal-close,
+  .mantine-Modal-overlay {
+    display: none !important;
+  }
+
+  /* Force flex items (like Doctor details / Patient bar) to stay side-by-side on mobile print */
+  .mantine-Group-root {
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+  }
 }
 
 .modal-backdrop {
@@ -1683,44 +1723,7 @@ body {
   to   { transform: translateY(0); opacity: 1; }
 }
 
-/* Printable layout override */
-@media print {
-  body * {
-    visibility: hidden;
-  }
-  .modal-backdrop, .modal-backdrop * {
-    visibility: visible;
-  }
-  .modal-backdrop {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
-    height: auto;
-    background: white !important;
-    color: black !important;
-    padding: 0;
-  }
-  .modal-content {
-    border: none;
-    background: white !important;
-    color: black !important;
-    box-shadow: none;
-    max-height: none;
-    overflow: visible;
-  }
-  .modal-header, .modal-footer, .modal-close, .btn-ai-explain, .ai-explainer-panel {
-    display: none !important;
-  }
-  .modal-body {
-    padding: 0;
-  }
-  .tag {
-    border: 1px solid #ccc !important;
-    color: black !important;
-    background: transparent !important;
-  }
-}
+
 
 /* ─── Responsive ────────────────────────────────────────────── */
 @media (max-width: 1100px) {
