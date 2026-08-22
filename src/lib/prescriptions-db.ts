@@ -7,9 +7,12 @@ import { getDoctorById } from './doctors-db'
 export interface Prescription {
   id: string
   doctorId: string
+  patientId?: string
   patientName: string
   patientAge: string
   patientGender: string
+  patientPhone?: string
+  patientAbha?: string
   diagnosis: string
   medicines: Array<{ name: string; dosage: string; duration: string }>
   tests?: string
@@ -30,9 +33,12 @@ function formatPrescription(p: PrescriptionSelect): Prescription {
   return {
     id: p.id,
     doctorId: p.doctorId,
+    patientId: p.patientId || undefined,
     patientName: p.patientName,
     patientAge: p.patientAge || '',
     patientGender: p.patientGender || '',
+    patientPhone: p.patientPhone || '',
+    patientAbha: p.patientAbha || '',
     diagnosis: p.diagnosis || '',
     medicines: parsedMeds,
     tests: p.tests || '',
@@ -53,12 +59,33 @@ export async function getAllPrescriptions(): Promise<Prescription[]> {
   }
 }
 
+export async function getPrescriptionById(id: string): Promise<Prescription | undefined> {
+  try {
+    const list = await db.select().from(prescriptions).where(eq(prescriptions.id, id))
+    if (list.length === 0) return undefined
+    return formatPrescription(list[0])
+  } catch (err) {
+    console.error('Error fetching prescription by id:', err)
+    return undefined
+  }
+}
+
 export async function getPrescriptionsByDoctorId(doctorId: string): Promise<Prescription[]> {
   try {
     const list = await db.select().from(prescriptions).where(eq(prescriptions.doctorId, doctorId)).orderBy(desc(prescriptions.createdAt))
     return list.map(formatPrescription)
   } catch (err) {
     console.error('Error fetching doctor prescriptions:', err)
+    return []
+  }
+}
+
+export async function getPrescriptionsByPatientId(patientId: string): Promise<Prescription[]> {
+  try {
+    const list = await db.select().from(prescriptions).where(eq(prescriptions.patientId, patientId)).orderBy(desc(prescriptions.createdAt))
+    return list.map(formatPrescription)
+  } catch (err) {
+    console.error('Error fetching patient prescriptions:', err)
     return []
   }
 }
@@ -75,9 +102,12 @@ export async function createPrescription(data: Omit<Prescription, 'id' | 'create
   const insertPayload = {
     id: newId,
     doctorId: data.doctorId,
+    patientId: data.patientId || null,
     patientName: data.patientName,
     patientAge: data.patientAge || '',
     patientGender: data.patientGender || '',
+    patientPhone: data.patientPhone || '',
+    patientAbha: data.patientAbha || '',
     diagnosis: data.diagnosis || '',
     medicines: JSON.stringify(data.medicines || []),
     tests: data.tests || '',
